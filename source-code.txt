@@ -1,0 +1,797 @@
+===== HW11 Source Code =====
+
+========== src/main/java/vendingmachine/CheetosDispenseHandler.java ==========
+package vendingmachine;
+
+public class CheetosDispenseHandler extends SnackDispenseHandler {
+    @Override
+    protected boolean canHandle(String snackName) {
+        return "Cheetos".equalsIgnoreCase(snackName);
+    }
+}
+
+========== src/main/java/vendingmachine/CokeDispenseHandler.java ==========
+package vendingmachine;
+
+public class CokeDispenseHandler extends SnackDispenseHandler {
+    @Override
+    protected boolean canHandle(String snackName) {
+        return "Coke".equalsIgnoreCase(snackName);
+    }
+}
+
+========== src/main/java/vendingmachine/DispensingSnackState.java ==========
+package vendingmachine;
+
+public class DispensingSnackState implements StateOfVendingMachine {
+    private final VendingMachine vendingMachine;
+
+    public DispensingSnackState(VendingMachine vendingMachine) {
+        this.vendingMachine = vendingMachine;
+    }
+
+    @Override
+    public void selectSnack(String snackName) {
+        System.out.println("Currently dispensing. Please wait.");
+    }
+
+    @Override
+    public void insertMoney(double amount) {
+        System.out.println("Currently dispensing. Please wait.");
+    }
+
+    @Override
+    public void dispenseSnack() {
+        Snack selected = vendingMachine.getSelectedSnack();
+        if (selected == null) {
+            System.out.println("No snack selected.");
+            vendingMachine.resetTransaction();
+            vendingMachine.setState(vendingMachine.getIdleState());
+            return;
+        }
+
+        boolean dispensed = vendingMachine.getSnackDispenser().handle(vendingMachine, selected.getName());
+        if (dispensed) {
+            double change = vendingMachine.getInsertedMoney() - selected.getPrice();
+            if (change > 0) {
+                System.out.println("Returning change: $" + String.format("%.2f", change));
+            }
+        } else {
+            System.out.println("Could not dispense " + selected.getName() + ". Returning $"
+                    + String.format("%.2f", vendingMachine.getInsertedMoney()));
+        }
+
+        vendingMachine.resetTransaction();
+        vendingMachine.setState(vendingMachine.getIdleState());
+        System.out.println("State -> Idle");
+    }
+
+    @Override
+    public String toString() {
+        return "Dispensing Snack";
+    }
+}
+
+========== src/main/java/vendingmachine/DoritosDispenseHandler.java ==========
+package vendingmachine;
+
+public class DoritosDispenseHandler extends SnackDispenseHandler {
+    @Override
+    protected boolean canHandle(String snackName) {
+        return "Doritos".equalsIgnoreCase(snackName);
+    }
+}
+
+========== src/main/java/vendingmachine/IdleState.java ==========
+package vendingmachine;
+
+public class IdleState implements StateOfVendingMachine {
+    private final VendingMachine vendingMachine;
+
+    public IdleState(VendingMachine vendingMachine) {
+        this.vendingMachine = vendingMachine;
+    }
+
+    @Override
+    public void selectSnack(String snackName) {
+        Snack snack = vendingMachine.getSnack(snackName);
+        if (snack == null) {
+            System.out.println("Snack not found: " + snackName);
+            return;
+        }
+        vendingMachine.setSelectedSnack(snack);
+        System.out.println("Selected " + snack.getName() + " ($" + String.format("%.2f", snack.getPrice()) + ")");
+        vendingMachine.setState(vendingMachine.getWaitingForMoneyState());
+        System.out.println("State -> Waiting for Money");
+    }
+
+    @Override
+    public void insertMoney(double amount) {
+        System.out.println("Select a snack before inserting money.");
+    }
+
+    @Override
+    public void dispenseSnack() {
+        System.out.println("Cannot dispense while idle. Select a snack first.");
+    }
+
+    @Override
+    public String toString() {
+        return "Idle";
+    }
+}
+
+========== src/main/java/vendingmachine/KitKatDispenseHandler.java ==========
+package vendingmachine;
+
+public class KitKatDispenseHandler extends SnackDispenseHandler {
+    @Override
+    protected boolean canHandle(String snackName) {
+        return "KitKat".equalsIgnoreCase(snackName);
+    }
+}
+
+========== src/main/java/vendingmachine/PepsiDispenseHandler.java ==========
+package vendingmachine;
+
+public class PepsiDispenseHandler extends SnackDispenseHandler {
+    @Override
+    protected boolean canHandle(String snackName) {
+        return "Pepsi".equalsIgnoreCase(snackName);
+    }
+}
+
+========== src/main/java/vendingmachine/Snack.java ==========
+package vendingmachine;
+
+public class Snack {
+    private final String name;
+    private final double price;
+    private int quantity;
+
+    public Snack(String name, double price, int quantity) {
+        if (name == null || name.isBlank()) {
+            throw new IllegalArgumentException("name cannot be null or blank");
+        }
+        if (price < 0) {
+            throw new IllegalArgumentException("price cannot be negative");
+        }
+        if (quantity < 0) {
+            throw new IllegalArgumentException("quantity cannot be negative");
+        }
+        this.name = name;
+        this.price = price;
+        this.quantity = quantity;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public double getPrice() {
+        return price;
+    }
+
+    public int getQuantity() {
+        return quantity;
+    }
+
+    public boolean isAvailable() {
+        return quantity > 0;
+    }
+
+    public void decrementQuantity() {
+        if (quantity <= 0) {
+            throw new IllegalStateException(name + " is out of stock");
+        }
+        quantity--;
+    }
+
+    @Override
+    public String toString() {
+        return name + " ($" + String.format("%.2f", price) + ", qty=" + quantity + ")";
+    }
+}
+
+========== src/main/java/vendingmachine/SnackDispenseHandler.java ==========
+package vendingmachine;
+
+public abstract class SnackDispenseHandler {
+    private SnackDispenseHandler nextHandler;
+
+    public SnackDispenseHandler setNext(SnackDispenseHandler nextHandler) {
+        this.nextHandler = nextHandler;
+        return nextHandler;
+    }
+
+    public SnackDispenseHandler getNextHandler() {
+        return nextHandler;
+    }
+
+    public final boolean handle(VendingMachine machine, String snackName) {
+        if (canHandle(snackName)) {
+            System.out.println(getClass().getSimpleName() + " handling request for " + snackName);
+            doDispense(machine, snackName);
+            return true;
+        }
+
+        System.out.println(getClass().getSimpleName() + " passing " + snackName + " to next handler");
+        if (nextHandler != null) {
+            return nextHandler.handle(machine, snackName);
+        }
+
+        System.out.println("No handler found for snack: " + snackName);
+        return false;
+    }
+
+    protected abstract boolean canHandle(String snackName);
+
+    protected void doDispense(VendingMachine machine, String snackName) {
+        Snack snack = machine.getSnack(snackName);
+        snack.decrementQuantity();
+        System.out.println("Dispensed " + snack.getName() + ". Remaining quantity: " + snack.getQuantity());
+    }
+}
+
+========== src/main/java/vendingmachine/SnickersDispenseHandler.java ==========
+package vendingmachine;
+
+public class SnickersDispenseHandler extends SnackDispenseHandler {
+    @Override
+    protected boolean canHandle(String snackName) {
+        return "Snickers".equalsIgnoreCase(snackName);
+    }
+}
+
+========== src/main/java/vendingmachine/StateOfVendingMachine.java ==========
+package vendingmachine;
+
+public interface StateOfVendingMachine {
+    void selectSnack(String snackName);
+
+    void insertMoney(double amount);
+
+    void dispenseSnack();
+}
+
+========== src/main/java/vendingmachine/VendingMachine.java ==========
+package vendingmachine;
+
+import java.util.Collection;
+import java.util.LinkedHashMap;
+import java.util.Map;
+
+public class VendingMachine {
+    private final Map<String, Snack> snacks = new LinkedHashMap<>();
+    private final StateOfVendingMachine idleState;
+    private final StateOfVendingMachine waitingForMoneyState;
+    private final StateOfVendingMachine dispensingSnackState;
+    private final SnackDispenseHandler snackDispenser;
+
+    private StateOfVendingMachine currentState;
+    private Snack selectedSnack;
+    private double insertedMoney;
+
+    public VendingMachine(SnackDispenseHandler snackDispenser) {
+        if (snackDispenser == null) {
+            throw new IllegalArgumentException("snackDispenser cannot be null");
+        }
+        this.snackDispenser = snackDispenser;
+        this.idleState = new IdleState(this);
+        this.waitingForMoneyState = new WaitingForMoneyState(this);
+        this.dispensingSnackState = new DispensingSnackState(this);
+        this.currentState = idleState;
+    }
+
+    public void addSnack(Snack snack) {
+        if (snack == null) {
+            throw new IllegalArgumentException("snack cannot be null");
+        }
+        snacks.put(snack.getName().toLowerCase(), snack);
+    }
+
+    public Snack getSnack(String name) {
+        if (name == null) {
+            return null;
+        }
+        return snacks.get(name.toLowerCase());
+    }
+
+    public Collection<Snack> getSnacks() {
+        return snacks.values();
+    }
+
+    public void selectSnack(String snackName) {
+        currentState.selectSnack(snackName);
+    }
+
+    public void insertMoney(double amount) {
+        currentState.insertMoney(amount);
+    }
+
+    public void dispenseSnack() {
+        currentState.dispenseSnack();
+    }
+
+    public StateOfVendingMachine getCurrentState() {
+        return currentState;
+    }
+
+    public void setState(StateOfVendingMachine state) {
+        if (state == null) {
+            throw new IllegalArgumentException("state cannot be null");
+        }
+        this.currentState = state;
+    }
+
+    public StateOfVendingMachine getIdleState() {
+        return idleState;
+    }
+
+    public StateOfVendingMachine getWaitingForMoneyState() {
+        return waitingForMoneyState;
+    }
+
+    public StateOfVendingMachine getDispensingSnackState() {
+        return dispensingSnackState;
+    }
+
+    public SnackDispenseHandler getSnackDispenser() {
+        return snackDispenser;
+    }
+
+    public Snack getSelectedSnack() {
+        return selectedSnack;
+    }
+
+    public void setSelectedSnack(Snack selectedSnack) {
+        this.selectedSnack = selectedSnack;
+    }
+
+    public double getInsertedMoney() {
+        return insertedMoney;
+    }
+
+    public void addInsertedMoney(double amount) {
+        this.insertedMoney += amount;
+    }
+
+    public void resetInsertedMoney() {
+        this.insertedMoney = 0;
+    }
+
+    public void resetTransaction() {
+        this.selectedSnack = null;
+        this.insertedMoney = 0;
+    }
+
+    public void printInventory() {
+        System.out.println("--- Inventory ---");
+        for (Snack snack : snacks.values()) {
+            System.out.println(snack);
+        }
+    }
+}
+
+========== src/main/java/vendingmachine/VendingMachineDriver.java ==========
+package vendingmachine;
+
+public class VendingMachineDriver {
+    public static void main(String[] args) {
+        SnackDispenseHandler chain = buildSnackChain();
+        VendingMachine machine = new VendingMachine(chain);
+
+        machine.addSnack(new Snack("Coke", 1.50, 3));
+        machine.addSnack(new Snack("Pepsi", 1.50, 3));
+        machine.addSnack(new Snack("Cheetos", 1.25, 2));
+        machine.addSnack(new Snack("Doritos", 1.25, 2));
+        machine.addSnack(new Snack("KitKat", 1.00, 2));
+        machine.addSnack(new Snack("Snickers", 1.00, 1));
+
+        System.out.println("=== Vending Machine ready (State: " + machine.getCurrentState() + ") ===");
+        machine.printInventory();
+
+        System.out.println("\n=== Purchase Coke with exact change ===");
+        machine.selectSnack("Coke");
+        machine.insertMoney(1.50);
+
+        System.out.println("\n=== Purchase Pepsi with extra money (get change) ===");
+        machine.selectSnack("Pepsi");
+        machine.insertMoney(2.00);
+
+        System.out.println("\n=== Purchase Cheetos with partial then remaining money ===");
+        machine.selectSnack("Cheetos");
+        machine.insertMoney(0.50);
+        machine.insertMoney(0.75);
+
+        System.out.println("\n=== Purchase Doritos ===");
+        machine.selectSnack("Doritos");
+        machine.insertMoney(1.25);
+
+        System.out.println("\n=== Purchase KitKat ===");
+        machine.selectSnack("KitKat");
+        machine.insertMoney(1.00);
+
+        System.out.println("\n=== Purchase last Snickers (quantity becomes 0) ===");
+        machine.selectSnack("Snickers");
+        machine.insertMoney(1.00);
+
+        System.out.println("\n=== Attempt another Snickers while quantity is 0 ===");
+        machine.selectSnack("Snickers");
+        machine.insertMoney(1.00);
+
+        System.out.println("\n=== Attempt insert money while idle ===");
+        machine.insertMoney(1.00);
+
+        System.out.println();
+        machine.printInventory();
+        System.out.println("Final state: " + machine.getCurrentState());
+    }
+
+    static SnackDispenseHandler buildSnackChain() {
+        SnackDispenseHandler coke = new CokeDispenseHandler();
+        SnackDispenseHandler pepsi = new PepsiDispenseHandler();
+        SnackDispenseHandler cheetos = new CheetosDispenseHandler();
+        SnackDispenseHandler doritos = new DoritosDispenseHandler();
+        SnackDispenseHandler kitKat = new KitKatDispenseHandler();
+        SnackDispenseHandler snickers = new SnickersDispenseHandler();
+
+        coke.setNext(pepsi);
+        pepsi.setNext(cheetos);
+        cheetos.setNext(doritos);
+        doritos.setNext(kitKat);
+        kitKat.setNext(snickers);
+
+        return coke;
+    }
+}
+
+========== src/main/java/vendingmachine/WaitingForMoneyState.java ==========
+package vendingmachine;
+
+public class WaitingForMoneyState implements StateOfVendingMachine {
+    private final VendingMachine vendingMachine;
+
+    public WaitingForMoneyState(VendingMachine vendingMachine) {
+        this.vendingMachine = vendingMachine;
+    }
+
+    @Override
+    public void selectSnack(String snackName) {
+        Snack snack = vendingMachine.getSnack(snackName);
+        if (snack == null) {
+            System.out.println("Snack not found: " + snackName);
+            return;
+        }
+        vendingMachine.setSelectedSnack(snack);
+        vendingMachine.resetInsertedMoney();
+        System.out.println("Changed selection to " + snack.getName()
+                + " ($" + String.format("%.2f", snack.getPrice()) + "). Inserted money reset.");
+    }
+
+    @Override
+    public void insertMoney(double amount) {
+        if (amount <= 0) {
+            System.out.println("Insert a positive amount of money.");
+            return;
+        }
+
+        vendingMachine.addInsertedMoney(amount);
+        Snack selected = vendingMachine.getSelectedSnack();
+        System.out.println("Inserted $" + String.format("%.2f", amount)
+                + ". Total inserted: $" + String.format("%.2f", vendingMachine.getInsertedMoney()));
+
+        if (vendingMachine.getInsertedMoney() < selected.getPrice()) {
+            double remaining = selected.getPrice() - vendingMachine.getInsertedMoney();
+            System.out.println("Need $" + String.format("%.2f", remaining) + " more for " + selected.getName());
+            return;
+        }
+
+        if (!selected.isAvailable()) {
+            System.out.println(selected.getName() + " is out of stock. Returning $"
+                    + String.format("%.2f", vendingMachine.getInsertedMoney()));
+            vendingMachine.resetTransaction();
+            vendingMachine.setState(vendingMachine.getIdleState());
+            System.out.println("State -> Idle");
+            return;
+        }
+
+        vendingMachine.setState(vendingMachine.getDispensingSnackState());
+        System.out.println("State -> Dispensing Snack");
+        vendingMachine.dispenseSnack();
+    }
+
+    @Override
+    public void dispenseSnack() {
+        System.out.println("Insert enough money before dispensing.");
+    }
+
+    @Override
+    public String toString() {
+        return "Waiting for Money";
+    }
+}
+
+===== Tests =====
+
+========== src/test/java/vendingmachine/SnackDispenseHandlerTest.java ==========
+package vendingmachine;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
+class SnackDispenseHandlerTest {
+    private VendingMachine machine;
+    private SnackDispenseHandler chain;
+
+    @BeforeEach
+    void setUp() {
+        chain = VendingMachineDriver.buildSnackChain();
+        machine = new VendingMachine(chain);
+        machine.addSnack(new Snack("Coke", 1.50, 2));
+        machine.addSnack(new Snack("Pepsi", 1.50, 2));
+        machine.addSnack(new Snack("Cheetos", 1.25, 2));
+        machine.addSnack(new Snack("Doritos", 1.25, 2));
+        machine.addSnack(new Snack("KitKat", 1.00, 2));
+        machine.addSnack(new Snack("Snickers", 1.00, 2));
+    }
+
+    @Test
+    void chainIsWiredInRequiredOrder() {
+        assertTrue(chain instanceof CokeDispenseHandler);
+        assertTrue(chain.getNextHandler() instanceof PepsiDispenseHandler);
+        assertTrue(chain.getNextHandler().getNextHandler() instanceof CheetosDispenseHandler);
+        assertTrue(chain.getNextHandler().getNextHandler().getNextHandler() instanceof DoritosDispenseHandler);
+        assertTrue(chain.getNextHandler().getNextHandler().getNextHandler().getNextHandler()
+                instanceof KitKatDispenseHandler);
+        assertTrue(chain.getNextHandler().getNextHandler().getNextHandler().getNextHandler().getNextHandler()
+                instanceof SnickersDispenseHandler);
+    }
+
+    @Test
+    void cokeHandlerDispensesCoke() {
+        assertTrue(chain.handle(machine, "Coke"));
+        assertEquals(1, machine.getSnack("Coke").getQuantity());
+    }
+
+    @Test
+    void snickersRequestWalksFullChain() {
+        assertTrue(chain.handle(machine, "Snickers"));
+        assertEquals(1, machine.getSnack("Snickers").getQuantity());
+    }
+
+    @Test
+    void unknownSnackReturnsFalse() {
+        assertFalse(chain.handle(machine, "Water"));
+    }
+}
+
+========== src/test/java/vendingmachine/SnackTest.java ==========
+package vendingmachine;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import org.junit.jupiter.api.Test;
+
+class SnackTest {
+    @Test
+    void createsSnackWithNamePriceAndQuantity() {
+        Snack snack = new Snack("Coke", 1.50, 3);
+        assertEquals("Coke", snack.getName());
+        assertEquals(1.50, snack.getPrice());
+        assertEquals(3, snack.getQuantity());
+        assertTrue(snack.isAvailable());
+    }
+
+    @Test
+    void decrementQuantityReducesStock() {
+        Snack snack = new Snack("Snickers", 1.00, 1);
+        snack.decrementQuantity();
+        assertEquals(0, snack.getQuantity());
+        assertFalse(snack.isAvailable());
+    }
+
+    @Test
+    void decrementQuantityThrowsWhenOutOfStock() {
+        Snack snack = new Snack("Snickers", 1.00, 0);
+        assertThrows(IllegalStateException.class, snack::decrementQuantity);
+    }
+
+    @Test
+    void rejectsInvalidConstruction() {
+        assertThrows(IllegalArgumentException.class, () -> new Snack("", 1.0, 1));
+        assertThrows(IllegalArgumentException.class, () -> new Snack("Coke", -1.0, 1));
+        assertThrows(IllegalArgumentException.class, () -> new Snack("Coke", 1.0, -1));
+    }
+}
+
+========== src/test/java/vendingmachine/StateOfVendingMachineTest.java ==========
+package vendingmachine;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNull;
+
+import java.io.ByteArrayOutputStream;
+import java.io.PrintStream;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
+class StateOfVendingMachineTest {
+    private VendingMachine machine;
+    private final ByteArrayOutputStream output = new ByteArrayOutputStream();
+    private PrintStream originalOut;
+
+    @BeforeEach
+    void setUp() {
+        originalOut = System.out;
+        System.setOut(new PrintStream(output));
+        machine = new VendingMachine(VendingMachineDriver.buildSnackChain());
+        machine.addSnack(new Snack("Coke", 1.50, 1));
+        machine.addSnack(new Snack("Pepsi", 1.50, 1));
+    }
+
+    @AfterEach
+    void restoreOutput() {
+        System.setOut(originalOut);
+    }
+
+    @Test
+    void idleRejectsInsertMoneyAndDispense() {
+        machine.insertMoney(1.00);
+        machine.dispenseSnack();
+        String printed = output.toString();
+        assertTrueContains(printed, "Select a snack before inserting money");
+        assertTrueContains(printed, "Cannot dispense while idle");
+        assertInstanceOf(IdleState.class, machine.getCurrentState());
+    }
+
+    @Test
+    void waitingForMoneyAllowsChangingSelection() {
+        machine.selectSnack("Coke");
+        machine.insertMoney(0.25);
+        machine.selectSnack("Pepsi");
+        assertEquals("Pepsi", machine.getSelectedSnack().getName());
+        assertEquals(0.0, machine.getInsertedMoney());
+        assertInstanceOf(WaitingForMoneyState.class, machine.getCurrentState());
+    }
+
+    @Test
+    void dispensingReturnsChangeThenIdle() {
+        machine.selectSnack("Coke");
+        machine.insertMoney(2.00);
+        assertInstanceOf(IdleState.class, machine.getCurrentState());
+        assertNull(machine.getSelectedSnack());
+        assertTrueContains(output.toString(), "Returning change: $0.50");
+    }
+
+    private static void assertTrueContains(String haystack, String needle) {
+        if (!haystack.contains(needle)) {
+            throw new AssertionError("Expected output to contain: " + needle + "\nWas:\n" + haystack);
+        }
+    }
+}
+
+========== src/test/java/vendingmachine/VendingMachineDriverTest.java ==========
+package vendingmachine;
+
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.io.ByteArrayOutputStream;
+import java.io.PrintStream;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
+class VendingMachineDriverTest {
+    private final ByteArrayOutputStream output = new ByteArrayOutputStream();
+    private PrintStream originalOut;
+
+    @BeforeEach
+    void captureOutput() {
+        originalOut = System.out;
+        System.setOut(new PrintStream(output));
+    }
+
+    @AfterEach
+    void restoreOutput() {
+        System.setOut(originalOut);
+    }
+
+    @Test
+    void driverDemonstratesStateAndChainOfResponsibility() {
+        VendingMachineDriver.main(new String[0]);
+        String printed = output.toString();
+
+        assertTrue(printed.contains("Vending Machine ready"));
+        assertTrue(printed.contains("Purchase Coke with exact change"));
+        assertTrue(printed.contains("Purchase last Snickers (quantity becomes 0)"));
+        assertTrue(printed.contains("Attempt another Snickers while quantity is 0"));
+        assertTrue(printed.contains("Snickers is out of stock"));
+        assertTrue(printed.contains("CokeDispenseHandler handling request for Coke"));
+        assertTrue(printed.contains("SnickersDispenseHandler handling request for Snickers"));
+        assertTrue(printed.contains("Snickers ($1.00, qty=0)"));
+        assertTrue(printed.contains("Final state: Idle"));
+    }
+}
+
+========== src/test/java/vendingmachine/VendingMachineTest.java ==========
+package vendingmachine;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
+class VendingMachineTest {
+    private VendingMachine machine;
+
+    @BeforeEach
+    void setUp() {
+        machine = new VendingMachine(VendingMachineDriver.buildSnackChain());
+        machine.addSnack(new Snack("Coke", 1.50, 2));
+        machine.addSnack(new Snack("Pepsi", 1.50, 1));
+        machine.addSnack(new Snack("Snickers", 1.00, 1));
+    }
+
+    @Test
+    void startsInIdleState() {
+        assertInstanceOf(IdleState.class, machine.getCurrentState());
+    }
+
+    @Test
+    void selectSnackMovesToWaitingForMoney() {
+        machine.selectSnack("Coke");
+        assertInstanceOf(WaitingForMoneyState.class, machine.getCurrentState());
+        assertEquals("Coke", machine.getSelectedSnack().getName());
+    }
+
+    @Test
+    void successfulPurchaseDispensesAndReturnsToIdle() {
+        machine.selectSnack("Coke");
+        machine.insertMoney(1.50);
+        assertInstanceOf(IdleState.class, machine.getCurrentState());
+        assertEquals(1, machine.getSnack("Coke").getQuantity());
+        assertNull(machine.getSelectedSnack());
+        assertEquals(0.0, machine.getInsertedMoney());
+    }
+
+    @Test
+    void insufficientMoneyStaysWaitingForMoney() {
+        machine.selectSnack("Coke");
+        machine.insertMoney(0.50);
+        assertInstanceOf(WaitingForMoneyState.class, machine.getCurrentState());
+        assertEquals(0.50, machine.getInsertedMoney());
+        assertEquals(2, machine.getSnack("Coke").getQuantity());
+    }
+
+    @Test
+    void outOfStockReturnsMoneyAndGoesIdle() {
+        machine.selectSnack("Snickers");
+        machine.insertMoney(1.00);
+        assertEquals(0, machine.getSnack("Snickers").getQuantity());
+
+        machine.selectSnack("Snickers");
+        machine.insertMoney(1.00);
+        assertInstanceOf(IdleState.class, machine.getCurrentState());
+        assertEquals(0, machine.getSnack("Snickers").getQuantity());
+        assertNull(machine.getSelectedSnack());
+    }
+
+    @Test
+    void rejectsNullDispenser() {
+        assertThrows(IllegalArgumentException.class, () -> new VendingMachine(null));
+    }
+}
+

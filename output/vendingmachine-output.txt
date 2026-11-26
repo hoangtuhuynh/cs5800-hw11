@@ -1,0 +1,99 @@
+=== Vending Machine ready (State: Idle) ===
+--- Inventory ---
+Coke ($1.50, qty=3)
+Pepsi ($1.50, qty=3)
+Cheetos ($1.25, qty=2)
+Doritos ($1.25, qty=2)
+KitKat ($1.00, qty=2)
+Snickers ($1.00, qty=1)
+
+=== Purchase Coke with exact change ===
+Selected Coke ($1.50)
+State -> Waiting for Money
+Inserted $1.50. Total inserted: $1.50
+State -> Dispensing Snack
+CokeDispenseHandler handling request for Coke
+Dispensed Coke. Remaining quantity: 2
+State -> Idle
+
+=== Purchase Pepsi with extra money (get change) ===
+Selected Pepsi ($1.50)
+State -> Waiting for Money
+Inserted $2.00. Total inserted: $2.00
+State -> Dispensing Snack
+CokeDispenseHandler passing Pepsi to next handler
+PepsiDispenseHandler handling request for Pepsi
+Dispensed Pepsi. Remaining quantity: 2
+Returning change: $0.50
+State -> Idle
+
+=== Purchase Cheetos with partial then remaining money ===
+Selected Cheetos ($1.25)
+State -> Waiting for Money
+Inserted $0.50. Total inserted: $0.50
+Need $0.75 more for Cheetos
+Inserted $0.75. Total inserted: $1.25
+State -> Dispensing Snack
+CokeDispenseHandler passing Cheetos to next handler
+PepsiDispenseHandler passing Cheetos to next handler
+CheetosDispenseHandler handling request for Cheetos
+Dispensed Cheetos. Remaining quantity: 1
+State -> Idle
+
+=== Purchase Doritos ===
+Selected Doritos ($1.25)
+State -> Waiting for Money
+Inserted $1.25. Total inserted: $1.25
+State -> Dispensing Snack
+CokeDispenseHandler passing Doritos to next handler
+PepsiDispenseHandler passing Doritos to next handler
+CheetosDispenseHandler passing Doritos to next handler
+DoritosDispenseHandler handling request for Doritos
+Dispensed Doritos. Remaining quantity: 1
+State -> Idle
+
+=== Purchase KitKat ===
+Selected KitKat ($1.00)
+State -> Waiting for Money
+Inserted $1.00. Total inserted: $1.00
+State -> Dispensing Snack
+CokeDispenseHandler passing KitKat to next handler
+PepsiDispenseHandler passing KitKat to next handler
+CheetosDispenseHandler passing KitKat to next handler
+DoritosDispenseHandler passing KitKat to next handler
+KitKatDispenseHandler handling request for KitKat
+Dispensed KitKat. Remaining quantity: 1
+State -> Idle
+
+=== Purchase last Snickers (quantity becomes 0) ===
+Selected Snickers ($1.00)
+State -> Waiting for Money
+Inserted $1.00. Total inserted: $1.00
+State -> Dispensing Snack
+CokeDispenseHandler passing Snickers to next handler
+PepsiDispenseHandler passing Snickers to next handler
+CheetosDispenseHandler passing Snickers to next handler
+DoritosDispenseHandler passing Snickers to next handler
+KitKatDispenseHandler passing Snickers to next handler
+SnickersDispenseHandler handling request for Snickers
+Dispensed Snickers. Remaining quantity: 0
+State -> Idle
+
+=== Attempt another Snickers while quantity is 0 ===
+Selected Snickers ($1.00)
+State -> Waiting for Money
+Inserted $1.00. Total inserted: $1.00
+Snickers is out of stock. Returning $1.00
+State -> Idle
+
+=== Attempt insert money while idle ===
+Select a snack before inserting money.
+
+--- Inventory ---
+Coke ($1.50, qty=2)
+Pepsi ($1.50, qty=2)
+Cheetos ($1.25, qty=1)
+Doritos ($1.25, qty=1)
+KitKat ($1.00, qty=1)
+Snickers ($1.00, qty=0)
+Final state: Idle
